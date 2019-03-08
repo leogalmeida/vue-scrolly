@@ -5,9 +5,9 @@ import nodeResolve from 'rollup-plugin-node-resolve';
 import commonjs from 'rollup-plugin-commonjs';
 
 export default {
-  name: 'Scrolly',
   input: 'src/index.js',
   output: {
+    name: 'Scrolly',
     file: 'dist/vue-scrolly.js',
     format: 'umd',
   },

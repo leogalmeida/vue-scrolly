@@ -1,6 +1,7 @@
 const DOM_SUBTREE_MODIFIED_EVENT = 'DOMSubtreeModified';
 const PROPERTY_CHANGE_EVENT = 'propertychange';
 const MOUSE_WHEEL_EVENT = 'wheel';
+const KEY_DOWN_EVENT = 'keydown';
 const MOUSE_MOVE_EVENT = 'mousemove';
 const MOUSE_UP_EVENT = 'mouseup';
 const DOM_CHANGE_HANDLER_THROTTLING_RATE = 250;
@@ -83,6 +84,14 @@ export default {
         // Unable to turn on passive: true if parentScroll is disabled.
         // Violation warning is expected in Chrome.
         supportsPassiveEvents ? { passive } : false
+      );
+
+      // Attach key down event
+      const onKeyDownHandler = this.onKeyDown.bind(this);
+
+      container.addEventListener(
+        KEY_DOWN_EVENT,
+        onKeyDownHandler
       );
 
       // Observe viewport for content changes
@@ -308,6 +317,39 @@ export default {
       const { barX, barY } = this;
       barX && (barX.scrollLayout = null);
       barY && (barY.scrollLayout = null);
+    },
+
+    onKeyDown(event) {
+      const { container } = this;
+
+      switch (event.which) { // Figure out which one it is
+        case 37:
+            // Left Arrow
+            this.refreshScrollLayout(-20, 0);
+            break;
+        case 38:
+            // Up Arrow
+            this.refreshScrollLayout(0, -20);
+            break;
+        case 39:
+            // Right Arrow
+            this.refreshScrollLayout(20, 0);
+            break;
+        case 40:
+            // Down Arrow
+            this.refreshScrollLayout(0, 20);
+            break;
+        case 33:
+            // Page Up
+            this.refreshScrollLayout(0, -container.clientHeight + 10);
+            break;
+        case 34:
+            // Page Down
+            this.refreshScrollLayout(0, container.clientHeight - 10);
+            break;
+        default:
+            return;
+      }
     },
 
     onDomChange: throttle(function() {

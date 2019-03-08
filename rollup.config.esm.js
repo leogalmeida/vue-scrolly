@@ -3,17 +3,15 @@ import vue from 'rollup-plugin-vue';
 import buble from 'rollup-plugin-buble';
 import nodeResolve from 'rollup-plugin-node-resolve';
 import commonjs from 'rollup-plugin-commonjs';
-import uglify from 'rollup-plugin-uglify';
-import { minify } from 'uglify-es';
+import { terser } from 'rollup-plugin-terser';
 
 export default {
-  name: 'Scrolly',
   input: 'src/index.js',
   output: {
+    name: 'Scrolly',
     file: 'dist/vue-scrolly.esm.js',
     format: 'es',
   },
-  sourcemaps: true,
   plugins: [
     alias({
       '@': './',
@@ -24,6 +22,6 @@ export default {
     buble(),
     nodeResolve({ browser: true, jsnext: true, main: true }),
     commonjs(),
-    uglify({}, minify),
+    terser(),
   ],
 };
