@@ -588,6 +588,9 @@
   var KEY_DOWN_EVENT = 'keydown';
   var MOUSE_MOVE_EVENT = 'mousemove';
   var MOUSE_UP_EVENT = 'mouseup';
+  var TOUCH_MOVE = 'touchmove';
+  var TOUCH_START = 'touchstart';
+  var TOUCH_END = 'touchend';
   var DOM_CHANGE_HANDLER_THROTTLING_RATE = 250;
   var PARENT_SCROLL_ACTIVATION_POINT = 25;
 
@@ -615,6 +618,8 @@
         onDomChangeHandler: null,
         mutationObserver: null,
         isScrolling: false,
+        touchStartX: null,
+        touchStartY: null,
       };
     },
 
@@ -668,6 +673,24 @@
         container.addEventListener(
           KEY_DOWN_EVENT,
           onKeyDownHandler
+        );
+
+        container.addEventListener(
+          TOUCH_START,
+          this.onTouchStart
+        );
+
+        container.addEventListener(
+          TOUCH_END,
+          this.onTouchEnd
+        );
+
+        container.addEventListener(
+          TOUCH_MOVE,
+          this.onTouchMove,
+          // Unable to turn on passive: true if parentScroll is disabled.
+          // Violation warning is expected in Chrome.
+          supportsPassiveEvents ? { passive: passive } : false
         );
 
         // Observe viewport for content changes
@@ -871,6 +894,45 @@
 
         addEventListener('mousemove', onMouseMove);
         addEventListener('mouseup', onMouseUp);
+      },
+
+      onTouchStart: function onTouchStart (event) {
+        this.touchStartX = event.touches[0].pageX;
+        this.touchStartY = event.touches[0].pageY;
+      },
+
+      onTouchEnd: function onTouchEnd () {
+        this.touchStartX = null;
+        this.touchStartY = null;
+      },
+
+      onTouchMove: function onTouchMove(event) {
+        if (!this.touchStartX) {
+          this.touchStartX = event.touches[0].pageX;
+          this.touchStartY = event.touches[0].pageY;
+        }
+
+        var dx = -(event.touches[0].pageX - this.touchStartX);
+        var dy = -(event.touches[0].pageY - this.touchStartY);
+        this.touchStartX = event.touches[0].pageX;
+        this.touchStartY = event.touches[0].pageY;
+
+        var ref =
+          // after refreshing scroll layout
+          this.refreshScrollLayout(dx, dy);
+        var scrollLayoutX = ref.x;
+        var scrollLayoutY = ref.y;
+
+        // If using passive scrolling, stop.
+        if (this.passiveScroll) { return; }
+
+        // Determine if scrolling of parent body should be prevented
+        var canScrollParentX = scrollLayoutX && scrollLayoutX.canScrollParent;
+        var canScrollParentY = scrollLayoutY && scrollLayoutY.canScrollParent;
+
+        // If scrolling parent is not possible, prevent it.
+        (!this.parentScroll || !(canScrollParentX || canScrollParentY)) &&
+          event.preventDefault();
       },
 
       onMouseWheel: function onMouseWheel(event) {
@@ -1329,7 +1391,8 @@
         on: {
           mouseenter: _vm.onMouseEnter,
           mousedown: _vm.onMouseDown,
-          mouseleave: _vm.onMouseLeave
+          mouseleave: _vm.onMouseLeave,
+          touchstart: _vm.onTouchStart
         }
       },
       [_vm._t("default")],
@@ -1342,7 +1405,7 @@
     /* style */
     var __vue_inject_styles__ = function (inject) {
       if (!inject) { return }
-      inject("data-v-72aacf74_0", { source: ".scrolly {\n  position: relative;\n}\n.scrolly .scrolly-bar {\n    opacity: 0;\n}\n.scrolly:hover .scrolly-bar, .scrolly.is-scrolling .scrolly-bar {\n    opacity: 1;\n}\n.scrolly-viewport {\n  position: absolute;\n  overflow: hidden;\n  width: 100%;\n  height: 100%;\n  z-index: 1;\n}\n.scrolly-bar {\n  position: absolute;\n  border: 7px solid transparent;\n  cursor: pointer;\n  z-index: 2;\n  transition: opacity .1s ease;\n}\n.scrolly-bar:before {\n    position: absolute;\n    width: 100%;\n    height: 100%;\n    content: \" \";\n    background: rgba(0, 0, 0, 0.3);\n    border-radius: 7px;\n    transition: background .2s ease;\n}\n.scrolly-bar:hover:before {\n    background: rgba(0, 0, 0, 0.6);\n}\n.scrolly-bar.axis-x {\n  left: 0;\n  bottom: 0;\n  width: 100%;\n  height: 21px;\n  min-width: 20%;\n  max-width: 100%;\n}\n.scrolly-bar.axis-y {\n  top: 0;\n  right: 0;\n  width: 21px;\n  height: 100%;\n  min-height: 20%;\n  max-height: 100%;\n}\n\n/*# sourceMappingURL=Scrolly.vue.map */", map: {"version":3,"sources":["/home/leo/work/vue-scrolly/src/Scrolly.vue","Scrolly.vue"],"names":[],"mappings":"AAWA;EACA,kBAAA;AAAA;AADA;IAIA,UAAA;AAAA;AAJA;IAUA,UAAA;AAAA;AAKA;EACA,kBAAA;EACA,gBAAA;EACA,WAAA;EACA,YAAA;EACA,UAAA;AAAA;AAGA;EACA,kBAAA;EACA,6BAAA;EACA,eAAA;EACA,UAAA;EACA,4BAAA;AAAA;AALA;IAQA,kBAAA;IACA,WAAA;IACA,YAAA;IACA,YAAA;IACA,8BAAA;IACA,kBAtCA;IAuCA,+BAAA;AAAA;AAdA;IAmBA,8BAAA;AAAA;AAKA;EACA,OAAA;EACA,SAAA;EACA,WAAA;EACA,YAAA;EACA,cAAA;EACA,eAAA;AAAA;AAGA;EACA,MAAA;EACA,QAAA;EACA,WAAA;EACA,YAAA;EACA,eAAA;EACA,gBAAA;AAAA;;AC1BA,sCAAsC","file":"Scrolly.vue","sourcesContent":["<template>\n<div :class=\"classnames\" @mouseenter=\"onMouseEnter\" @mousedown=\"onMouseDown\" @mouseleave=\"onMouseLeave\" tabindex=\"1\">\n  <slot></slot>\n</div>\n</template>\n\n<script src=\"./Scrolly.js\"></script>\n\n<style lang=\"scss\">\n$scrolly-bar-size: 7px;\n\n.scrolly {\n  position: relative;\n\n  .scrolly-bar {\n    opacity: 0;\n  }\n\n  &:hover,\n  &.is-scrolling {\n    .scrolly-bar {\n      opacity: 1;\n    }\n  }\n}\n\n.scrolly-viewport {\n  position: absolute;\n  overflow: hidden;\n  width: 100%;\n  height: 100%;\n  z-index: 1;\n}\n\n.scrolly-bar {\n  position: absolute;\n  border: $scrolly-bar-size solid transparent;\n  cursor: pointer;\n  z-index: 2;\n  transition: opacity .1s ease;\n\n  &:before {\n    position: absolute;\n    width: 100%;\n    height: 100%;\n    content: \" \";\n    background: rgba(0, 0, 0, 0.3);\n    border-radius: $scrolly-bar-size;\n    transition: background .2s ease;\n  }\n\n  &:hover {\n    &:before {\n      background: rgba(0, 0, 0, 0.6);\n    }\n  }\n}\n\n.scrolly-bar.axis-x {\n  left: 0;\n  bottom: 0;\n  width: 100%;\n  height: $scrolly-bar-size * 3;\n  min-width: 20%;\n  max-width: 100%;\n}\n\n.scrolly-bar.axis-y {\n  top: 0;\n  right: 0;\n  width: $scrolly-bar-size * 3;\n  height: 100%;\n  min-height: 20%;\n  max-height: 100%;\n}\n</style>\n",".scrolly {\n  position: relative; }\n  .scrolly .scrolly-bar {\n    opacity: 0; }\n  .scrolly:hover .scrolly-bar, .scrolly.is-scrolling .scrolly-bar {\n    opacity: 1; }\n\n.scrolly-viewport {\n  position: absolute;\n  overflow: hidden;\n  width: 100%;\n  height: 100%;\n  z-index: 1; }\n\n.scrolly-bar {\n  position: absolute;\n  border: 7px solid transparent;\n  cursor: pointer;\n  z-index: 2;\n  transition: opacity .1s ease; }\n  .scrolly-bar:before {\n    position: absolute;\n    width: 100%;\n    height: 100%;\n    content: \" \";\n    background: rgba(0, 0, 0, 0.3);\n    border-radius: 7px;\n    transition: background .2s ease; }\n  .scrolly-bar:hover:before {\n    background: rgba(0, 0, 0, 0.6); }\n\n.scrolly-bar.axis-x {\n  left: 0;\n  bottom: 0;\n  width: 100%;\n  height: 21px;\n  min-width: 20%;\n  max-width: 100%; }\n\n.scrolly-bar.axis-y {\n  top: 0;\n  right: 0;\n  width: 21px;\n  height: 100%;\n  min-height: 20%;\n  max-height: 100%; }\n\n/*# sourceMappingURL=Scrolly.vue.map */"]}, media: undefined });
+      inject("data-v-466af7de_0", { source: ".scrolly {\n  position: relative;\n}\n.scrolly .scrolly-bar {\n    opacity: 0;\n}\n.scrolly:hover .scrolly-bar, .scrolly.is-scrolling .scrolly-bar {\n    opacity: 1;\n}\n.scrolly-viewport {\n  position: absolute;\n  overflow: hidden;\n  width: 100%;\n  height: 100%;\n  z-index: 1;\n}\n.scrolly-bar {\n  position: absolute;\n  border: 7px solid transparent;\n  cursor: pointer;\n  z-index: 2;\n  transition: opacity .1s ease;\n}\n.scrolly-bar:before {\n    position: absolute;\n    width: 100%;\n    height: 100%;\n    content: \" \";\n    background: rgba(0, 0, 0, 0.3);\n    border-radius: 7px;\n    transition: background .2s ease;\n}\n.scrolly-bar:hover:before {\n    background: rgba(0, 0, 0, 0.6);\n}\n.scrolly-bar.axis-x {\n  left: 0;\n  bottom: 0;\n  width: 100%;\n  height: 21px;\n  min-width: 20%;\n  max-width: 100%;\n}\n.scrolly-bar.axis-y {\n  top: 0;\n  right: 0;\n  width: 21px;\n  height: 100%;\n  min-height: 20%;\n  max-height: 100%;\n}\n\n/*# sourceMappingURL=Scrolly.vue.map */", map: {"version":3,"sources":["/home/leo/work/vue-scrolly/src/Scrolly.vue","Scrolly.vue"],"names":[],"mappings":"AAWA;EACA,kBAAA;AAAA;AADA;IAIA,UAAA;AAAA;AAJA;IAUA,UAAA;AAAA;AAKA;EACA,kBAAA;EACA,gBAAA;EACA,WAAA;EACA,YAAA;EACA,UAAA;AAAA;AAGA;EACA,kBAAA;EACA,6BAAA;EACA,eAAA;EACA,UAAA;EACA,4BAAA;AAAA;AALA;IAQA,kBAAA;IACA,WAAA;IACA,YAAA;IACA,YAAA;IACA,8BAAA;IACA,kBAtCA;IAuCA,+BAAA;AAAA;AAdA;IAmBA,8BAAA;AAAA;AAKA;EACA,OAAA;EACA,SAAA;EACA,WAAA;EACA,YAAA;EACA,cAAA;EACA,eAAA;AAAA;AAGA;EACA,MAAA;EACA,QAAA;EACA,WAAA;EACA,YAAA;EACA,eAAA;EACA,gBAAA;AAAA;;AC1BA,sCAAsC","file":"Scrolly.vue","sourcesContent":["<template>\n<div :class=\"classnames\" @mouseenter=\"onMouseEnter\" @mousedown=\"onMouseDown\" @mouseleave=\"onMouseLeave\" @touchstart=\"onTouchStart\" tabindex=\"1\">\n  <slot></slot>\n</div>\n</template>\n\n<script src=\"./Scrolly.js\"></script>\n\n<style lang=\"scss\">\n$scrolly-bar-size: 7px;\n\n.scrolly {\n  position: relative;\n\n  .scrolly-bar {\n    opacity: 0;\n  }\n\n  &:hover,\n  &.is-scrolling {\n    .scrolly-bar {\n      opacity: 1;\n    }\n  }\n}\n\n.scrolly-viewport {\n  position: absolute;\n  overflow: hidden;\n  width: 100%;\n  height: 100%;\n  z-index: 1;\n}\n\n.scrolly-bar {\n  position: absolute;\n  border: $scrolly-bar-size solid transparent;\n  cursor: pointer;\n  z-index: 2;\n  transition: opacity .1s ease;\n\n  &:before {\n    position: absolute;\n    width: 100%;\n    height: 100%;\n    content: \" \";\n    background: rgba(0, 0, 0, 0.3);\n    border-radius: $scrolly-bar-size;\n    transition: background .2s ease;\n  }\n\n  &:hover {\n    &:before {\n      background: rgba(0, 0, 0, 0.6);\n    }\n  }\n}\n\n.scrolly-bar.axis-x {\n  left: 0;\n  bottom: 0;\n  width: 100%;\n  height: $scrolly-bar-size * 3;\n  min-width: 20%;\n  max-width: 100%;\n}\n\n.scrolly-bar.axis-y {\n  top: 0;\n  right: 0;\n  width: $scrolly-bar-size * 3;\n  height: 100%;\n  min-height: 20%;\n  max-height: 100%;\n}\n</style>\n",".scrolly {\n  position: relative; }\n  .scrolly .scrolly-bar {\n    opacity: 0; }\n  .scrolly:hover .scrolly-bar, .scrolly.is-scrolling .scrolly-bar {\n    opacity: 1; }\n\n.scrolly-viewport {\n  position: absolute;\n  overflow: hidden;\n  width: 100%;\n  height: 100%;\n  z-index: 1; }\n\n.scrolly-bar {\n  position: absolute;\n  border: 7px solid transparent;\n  cursor: pointer;\n  z-index: 2;\n  transition: opacity .1s ease; }\n  .scrolly-bar:before {\n    position: absolute;\n    width: 100%;\n    height: 100%;\n    content: \" \";\n    background: rgba(0, 0, 0, 0.3);\n    border-radius: 7px;\n    transition: background .2s ease; }\n  .scrolly-bar:hover:before {\n    background: rgba(0, 0, 0, 0.6); }\n\n.scrolly-bar.axis-x {\n  left: 0;\n  bottom: 0;\n  width: 100%;\n  height: 21px;\n  min-width: 20%;\n  max-width: 100%; }\n\n.scrolly-bar.axis-y {\n  top: 0;\n  right: 0;\n  width: 21px;\n  height: 100%;\n  min-height: 20%;\n  max-height: 100%; }\n\n/*# sourceMappingURL=Scrolly.vue.map */"]}, media: undefined });
 
     };
     /* scoped */

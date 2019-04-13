@@ -4,6 +4,9 @@ const MOUSE_WHEEL_EVENT = 'wheel';
 const KEY_DOWN_EVENT = 'keydown';
 const MOUSE_MOVE_EVENT = 'mousemove';
 const MOUSE_UP_EVENT = 'mouseup';
+const TOUCH_MOVE = 'touchmove';
+const TOUCH_START = 'touchstart';
+const TOUCH_END = 'touchend';
 const DOM_CHANGE_HANDLER_THROTTLING_RATE = 250;
 const PARENT_SCROLL_ACTIVATION_POINT = 25;
 
@@ -39,6 +42,8 @@ export default {
       onDomChangeHandler: null,
       mutationObserver: null,
       isScrolling: false,
+      touchStartX: null,
+      touchStartY: null,
     };
   },
 
@@ -92,6 +97,24 @@ export default {
       container.addEventListener(
         KEY_DOWN_EVENT,
         onKeyDownHandler
+      );
+
+      container.addEventListener(
+        TOUCH_START,
+        this.onTouchStart
+      );
+
+      container.addEventListener(
+        TOUCH_END,
+        this.onTouchEnd
+      );
+
+      container.addEventListener(
+        TOUCH_MOVE,
+        this.onTouchMove,
+        // Unable to turn on passive: true if parentScroll is disabled.
+        // Violation warning is expected in Chrome.
+        supportsPassiveEvents ? { passive } : false
       );
 
       // Observe viewport for content changes
@@ -290,6 +313,43 @@ export default {
 
       addEventListener('mousemove', onMouseMove);
       addEventListener('mouseup', onMouseUp);
+    },
+
+    onTouchStart (event) {
+      this.touchStartX = event.touches[0].pageX;
+      this.touchStartY = event.touches[0].pageY;
+    },
+
+    onTouchEnd () {
+      this.touchStartX = null;
+      this.touchStartY = null;
+    },
+
+    onTouchMove(event) {
+      if (!this.touchStartX) {
+        this.touchStartX = event.touches[0].pageX;
+        this.touchStartY = event.touches[0].pageY;
+      }
+
+      const dx = -(event.touches[0].pageX - this.touchStartX);
+      const dy = -(event.touches[0].pageY - this.touchStartY);
+      this.touchStartX = event.touches[0].pageX;
+      this.touchStartY = event.touches[0].pageY;
+
+      const { x: scrollLayoutX, y: scrollLayoutY } =
+        // after refreshing scroll layout
+        this.refreshScrollLayout(dx, dy);
+
+      // If using passive scrolling, stop.
+      if (this.passiveScroll) return;
+
+      // Determine if scrolling of parent body should be prevented
+      let canScrollParentX = scrollLayoutX && scrollLayoutX.canScrollParent;
+      let canScrollParentY = scrollLayoutY && scrollLayoutY.canScrollParent;
+
+      // If scrolling parent is not possible, prevent it.
+      (!this.parentScroll || !(canScrollParentX || canScrollParentY)) &&
+        event.preventDefault();
     },
 
     onMouseWheel(event) {
